@@ -1,0 +1,71 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator kysely {
+  provider     = "prisma-kysely"
+  // 出力先ディレクトリ
+  output       = "../src/lib/server/database"
+  // ファイル名
+  fileName     = "types.ts"
+  // enumは別ファイルに出力する（オプション）
+  enumFileName = "enums.ts"
+}
+
+model Tenant {
+  id      String    @id
+  title   String
+  User    User[]
+  Article Article[]
+
+  @@map("tenant")
+}
+
+model Article {
+  id        String @id @default(dbgenerated("to_char(current_timestamp, 'YYYYMMDDHH24MISSMS')"))
+  title     String
+  subtitle  String
+  body      String
+  tenant_id String
+  user_id   String
+
+  tenant Tenant @relation(fields: [tenant_id], references: [id])
+  user   User   @relation(fields: [user_id], references: [id])
+
+  @@map("article") 
+}
+
+model User {
+  id        String @id @unique
+  name      String
+  tenant_id String
+
+  tenant       Tenant    @relation(fields: [tenant_id], references: [id])
+  auth_session Session[]
+  auth_key     Key[]
+  Article      Article[]
+
+  @@map("user")
+}
+
+model Key {
+  id              String  @id @unique
+  hashed_password String?
+  user_id         String
+  user            User    @relation(references: [id], fields: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("key")
+}
+
+model Session {
+  id             String @id @unique
+  user_id        String
+  active_expires BigInt
+  idle_expires   BigInt
+  user           User   @relation(references: [id], fields: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+  @@map("session")
+}
